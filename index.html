@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>여러 이미지 PDF 병합기</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+
+    <h2>이미지 파일들을 하나의 PDF로 합치기</h2>
+    <input type="file" id="upload" accept="image/*" multiple>
+    <br><br>
+    <button id="convertBtn">PDF로 변환하기</button>
+
+    <script>
+        const upload = document.getElementById('upload');
+        const convertBtn = document.getElementById('convertBtn');
+
+        convertBtn.addEventListener('click', async function() {
+            const files = upload.files;
+            if (files.length === 0) {
+                alert("이미지를 선택해주세요.");
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+
+            // 순차 처리를 위해 async/await 사용
+            for (let i = 0; i < files.length; i++) {
+                const imgData = await readFileAsDataURL(files[i]);
+                
+                // 첫 번째 이후 페이지부터는 새 페이지 생성
+                if (i > 0) pdf.addPage();
+
+                // 이미지 로드 및 PDF에 추가
+                const imgProps = await getImageDimensions(imgData);
+                const ratio = Math.min(pageWidth / imgProps.width, pageHeight / imgProps.height);
+                const imgWidth = imgProps.width * ratio;
+                const imgHeight = imgProps.height * ratio;
+
+                pdf.addImage(imgData, 'JPEG', (pageWidth - imgWidth) / 2, (pageHeight - imgHeight) / 2, imgWidth, imgHeight);
+            }
+
+            pdf.save("merged_images.pdf");
+        });
+
+        // 파일 읽기 Promise 함수
+        function readFileAsDataURL(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // 이미지 크기 확인 Promise 함수
+        function getImageDimensions(imgData) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve({ width: img.width, height: img.height });
+                img.src = imgData;
+            });
+        }
+    </script>
+</body>
+</html>
